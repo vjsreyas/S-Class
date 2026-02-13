@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dino Jetpack: Cosmic Survival</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700&family=Space+Mono&display=swap"
+    rel="stylesheet">
+  <style>
+    :root {
+      --bg-color: #0d0d12;
+      --accent-color: #00f2ff;
+      --danger-color: #ff4d4d;
+      --text-color: #ffffff;
+      --glass-bg: rgba(255, 255, 255, 0.05);
+      --glass-border: rgba(255, 255, 255, 0.1);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      font-family: 'Outfit', sans-serif;
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    #game-container {
+      position: relative;
+      width: 95vw;
+      max-width: 1000px;
+      aspect-ratio: 2 / 1;
+      background: linear-gradient(180deg, #87CEEB 0%, #E0F0FF 100%);
+      border-radius: 12px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), 0 0 20px rgba(0, 242, 255, 0.1);
+      border: 1px solid var(--glass-border);
+      overflow: hidden;
+    }
+
+    canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    #ui-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 20;
+      pointer-events: none;
+    }
+
+    .screen {
+      background: rgba(10, 10, 20, 0.85);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--glass-border);
+      padding: 2.5rem 3rem;
+      border-radius: 20px;
+      text-align: center;
+      opacity: 0;
+      transform: scale(0.9);
+      transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      pointer-events: none;
+    }
+
+    .screen.active {
+      opacity: 1;
+      transform: scale(1);
+      pointer-events: auto;
+    }
+
+    .screen h1 {
+      font-size: 2.8rem;
+      margin-bottom: 0.8rem;
+      background: linear-gradient(45deg, var(--accent-color), #bc00ff);
+      background-clip: text;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-transform: uppercase;
+      letter-spacing: 4px;
+    }
+
+    .screen p {
+      margin-bottom: 0.5rem;
+      opacity: 0.8;
+      font-size: 0.95rem;
+    }
+
+    .screen .sub {
+      font-size: 0.75rem;
+      opacity: 0.5;
+    }
+
+    .btn {
+      background: var(--accent-color);
+      color: #000;
+      border: none;
+      padding: 14px 40px;
+      font-size: 1.1rem;
+      font-weight: 700;
+      border-radius: 50px;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-top: 1.2rem;
+      font-family: 'Outfit', sans-serif;
+    }
+
+    .btn:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 10px 25px rgba(0, 242, 255, 0.5);
+    }
+
+    #hud {
+      position: absolute;
+      top: 15px;
+      left: 20px;
+      right: 20px;
+      display: flex;
+      justify-content: space-between;
+      font-family: 'Space Mono', monospace;
+      font-size: 0.85rem;
+      z-index: 15;
+      pointer-events: none;
+    }
+
+    .stat {
+      background: var(--glass-bg);
+      padding: 6px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--glass-border);
+    }
+
+    #fuel-bar-container {
+      position: absolute;
+      bottom: 15px;
+      left: 20px;
+      width: 180px;
+      height: 8px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 5px;
+      overflow: hidden;
+      border: 1px solid var(--glass-border);
+      z-index: 15;
+    }
+
+    #fuel-bar {
+      height: 100%;
+      width: 100%;
+      background: linear-gradient(90deg, #00f2ff, #0072ff);
+      transition: width 0.1s;
+      border-radius: 5px;
+    }
+
+    #game-over-screen h1 {
+      background: none !important;
+      -webkit-text-fill-color: var(--danger-color) !important;
+      color: var(--danger-color);
+    }
+  </style>
+</head>
+
+<body>
+  <div id="game-container">
+    <canvas id="gameCanvas"></canvas>
+    <div id="hud">
+      <div id="score-display" class="stat">SCORE: 00000</div>
+      <div id="highscore-display" class="stat">BEST: 00000</div>
+    </div>
+    <div id="fuel-bar-container">
+      <div id="fuel-bar"></div>
+    </div>
+    <div id="ui-overlay">
+      <div id="start-screen" class="screen active">
+        <h1>DINO JET</h1>
+        <p>AVOID OBSTACLES &bull; DODGE FALLING METEORS</p>
+        <p class="sub">SPACE / UP / W &mdash; JETPACK</p>
+        <button class="btn" id="start-btn">LAUNCH</button>
+      </div>
+      <div id="game-over-screen" class="screen">
+        <h1>HULL BREACH</h1>
+        <p id="final-score">SCORE: 00000</p>
+        <button class="btn" id="restart-btn">REBOOT</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- Generate Dino sprite (grey T-Rex with jetpack on back) ---
+    function createDinoSprite() {
+      const c = document.createElement("canvas");
+      c.width = 44; c.height = 47;
+      const g = c.getContext("2d");
+      const P = 2; // pixel size
+      const gray = "#535353";
+      const dgray = "#3e3e3e";
+      const lgray = "#707070";
+
+      // HEAD (top-right area)
+      g.fillStyle = gray;
+      g.fillRect(22, 0, 22, 18);
+      // Eye
+      g.fillStyle = "#000";
+      g.fillRect(36, 4, 4, 4);
+      // Mouth slit
+      g.fillStyle = "#444";
+      g.fillRect(30, 14, 14, 2);
+
+      // BODY
+      g.fillStyle = gray;
+      g.fillRect(8, 14, 30, 18);
+
+      // TAIL
+      g.fillRect(0, 14, 10, 8);
+      g.fillRect(0, 10, 6, 6);
+
+      // SHORT ARMS
+      g.fillRect(32, 24, 4, 8);
+      g.fillRect(34, 30, 4, 2);
+
+      // LEGS
+      g.fillRect(14, 32, 6, 10);
+      g.fillRect(10, 40, 6, 4);
+      g.fillRect(26, 32, 6, 10);
+      g.fillRect(30, 40, 6, 4);
+
+      // JETPACK (on the back / left side)
+      g.fillStyle = dgray;
+      g.fillRect(0, 18, 10, 14);
+      g.strokeStyle = "#5a5a5a";
+      g.lineWidth = 1;
+      g.strokeRect(0, 18, 10, 14);
+      // Nozzle details
+      g.fillStyle = "#4a4a4a";
+      g.fillRect(1, 32, 4, 3);
+      g.fillRect(5, 32, 4, 3);
+      // Flame indicators
+      g.fillStyle = "#ff6600";
+      g.fillRect(2, 35, 2, 4);
+      g.fillRect(6, 35, 2, 4);
+      g.fillStyle = "#ffcc00";
+      g.fillRect(2, 36, 2, 2);
+      g.fillRect(6, 36, 2, 2);
+
+      return c;
+    }
+
+    // --- Generate Cactus sprite (pixel-art style grey cactus) ---
+    function createCactusSprite() {
+      const c = document.createElement("canvas");
+      c.width = 26; c.height = 50;
+      const g = c.getContext("2d");
+      const g1 = "#808080";
+      const g2 = "#6e6e6e";
+      const g3 = "#909090";
+
+      // Main trunk
+      g.fillStyle = g1;
+      g.fillRect(9, 0, 8, 50);
+
+      // Left arm
+      g.fillStyle = g2;
+      g.fillRect(0, 14, 9, 5);
+      g.fillRect(0, 14, 5, 16);
+      g.fillStyle = g3;
+      g.fillRect(1, 15, 3, 14);
+
+      // Right arm
+      g.fillStyle = g2;
+      g.fillRect(17, 20, 9, 5);
+      g.fillRect(21, 10, 5, 15);
+      g.fillStyle = g3;
+      g.fillRect(22, 11, 3, 13);
+
+      // Trunk highlight
+      g.fillStyle = g3;
+      g.fillRect(11, 1, 3, 48);
+
+      return c;
+    }
+
+    const DINO_SPRITE = createDinoSprite();
+    const CACTUS_SPRITE = createCactusSprite();
+
+    const CONFIG = {
+      Gravity: 0.4,
+      FlyForce: -0.85,
+      MaxVelocityUp: -7,
+      MaxVelocityDown: 8,
+      BaseSpeed: 3,
+      MaxSpeed: 14,
+      SpeedIncrement: 0.0004,
+      GroundY: 420,
+      AsteroidInterval: 220,
+      FuelDown: 0.5,
+      FuelUp: 0.3,
+      NightThreshold: 500,
+      AsteroidAfterScore: 200
+    };
+
+    const KEYS = { Space: false };
+    window.addEventListener("keydown", e => {
+      if (["Space", "ArrowUp", "KeyW"].includes(e.code)) { KEYS.Space = true; e.preventDefault(); }
+    });
+    window.addEventListener("keyup", e => {
+      if (["Space", "ArrowUp", "KeyW"].includes(e.code)) KEYS.Space = false;
+    });
+
+    class Player {
+      constructor() {
+        this.w = 55; this.h = 58;
+        this.x = 80;
+        this.y = CONFIG.GroundY - this.h;
+        this.vy = 0;
+        this.grounded = true;
+        this.fuel = 100;
+        this.particles = [];
+        this.legFrame = 0;
+      }
+      update() {
+        if (KEYS.Space && this.fuel > 0) {
+          this.vy += CONFIG.FlyForce;
+          this.grounded = false;
+          this.fuel -= CONFIG.FuelDown;
+          this.exhaust();
+        } else {
+          this.fuel = Math.min(100, this.fuel + CONFIG.FuelUp);
+        }
+        this.vy += CONFIG.Gravity;
+        if (this.vy < CONFIG.MaxVelocityUp) this.vy = CONFIG.MaxVelocityUp;
+        if (this.vy > CONFIG.MaxVelocityDown) this.vy = CONFIG.MaxVelocityDown;
+        this.y += this.vy;
+        if (this.y < 10) { this.y = 10; this.vy = 0; }
+        if (this.y > CONFIG.GroundY - this.h) { this.y = CONFIG.GroundY - this.h; this.vy = 0; this.grounded = true; }
+        this.particles.forEach(p => { p.x -= 1.5; p.y += p.vy; p.a -= 0.02; });
+        this.particles = this.particles.filter(p => p.a > 0);
+        document.getElementById('fuel-bar').style.width = this.fuel + '%';
+        this.legFrame++;
+      }
+      exhaust() {
+        for (let i = 0; i < 3; i++) {
+          this.particles.push({
+            x: this.x + 5, y: this.y + this.h - 5,
+            vy: Math.random() * 2 + 1, a: 1, s: Math.random() * 5 + 2
+          });
+        }
+      }
+      draw(ctx) {
+        // Draw exhaust particles
+        this.particles.forEach(p => {
+          ctx.fillStyle = `rgba(255,160,0,${p.a})`;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.s, 0, Math.PI * 2);
+          ctx.fill();
+        });
+
+        // Draw dino sprite
+        ctx.drawImage(DINO_SPRITE, this.x, this.y, this.w, this.h);
+
+        // Draw jetpack flames when flying
+        if (KEYS.Space && this.fuel > 0 && !this.grounded) {
+          let t = Date.now() * 0.01;
+          let flameH = Math.sin(t) * 5 + 14;
+          // Left nozzle flame
+          ctx.fillStyle = "#ffaa00";
+          ctx.fillRect(this.x + 2, this.y + this.h - 2, 7, flameH);
+          ctx.fillStyle = "#ff4400";
+          ctx.fillRect(this.x + 3, this.y + this.h, 5, flameH * 0.65);
+          ctx.fillStyle = "#ffee00";
+          ctx.fillRect(this.x + 4, this.y + this.h + 2, 3, flameH * 0.35);
+          // Right nozzle flame
+          ctx.fillStyle = "#ffaa00";
+          ctx.fillRect(this.x + 10, this.y + this.h - 2, 7, flameH * 0.85);
+          ctx.fillStyle = "#ff4400";
+          ctx.fillRect(this.x + 11, this.y + this.h, 5, flameH * 0.5);
+          ctx.fillStyle = "#ffee00";
+          ctx.fillRect(this.x + 12, this.y + this.h + 2, 3, flameH * 0.25);
+        }
+      }
+    }
+
+    class Obstacle {
+      constructor(canvasW) {
+        this.w = 30 + Math.random() * 15;
+        this.h = 50 + Math.random() * 40;
+        this.x = canvasW + 50 + Math.random() * 200;
+        this.y = CONFIG.GroundY - this.h;
+        this.active = true;
+      }
+      update(speed) {
+        this.x -= speed;
+        if (this.x + this.w < -50) this.active = false;
+      }
+      draw(ctx) {
+        ctx.drawImage(CACTUS_SPRITE, this.x, this.y, this.w, this.h);
+      }
+    }
+
+    class Asteroid {
+      constructor(canvasW, speed) {
+        this.size = 35 + Math.random() * 25;
+        this.x = canvasW + 50 + Math.random() * 300;
+        this.y = -80;
+        this.sx = speed + 2;
+        this.sy = 2.5 + Math.random() * 3;
+        this.active = true;
+        this.angle = 0;
+      }
+      update() {
+        this.x -= this.sx;
+        this.y += this.sy;
+        this.angle += 0.08;
+        if (this.y > 550 || this.x < -100) this.active = false;
+      }
+      draw(ctx) {
+        ctx.save();
+        ctx.translate(this.x + this.size / 2, this.y + this.size / 2);
+        ctx.rotate(this.angle);
+        // Trail
+        ctx.fillStyle = "rgba(255,77,77,0.25)";
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(50, -15); ctx.lineTo(35, -35); ctx.fill();
+        // Body
+        ctx.fillStyle = "#ff4d4d";
+        ctx.beginPath(); ctx.arc(0, 0, this.size / 2, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.stroke();
+        ctx.restore();
+      }
+    }
+
+    class Star {
+      constructor(w, h) {
+        this.x = Math.random() * w;
+        this.y = Math.random() * h;
+        this.s = Math.random() * 2;
+        this.sp = Math.random() * 0.5 + 0.1;
+        this.maxW = w;
+      }
+      update(gameSpeed) {
+        this.x -= this.sp * (gameSpeed / 4);
+        if (this.x < 0) this.x = this.maxW;
+      }
+      draw(ctx, nightAlpha) {
+        ctx.fillStyle = `rgba(255,255,255,${nightAlpha})`;
+        ctx.fillRect(this.x, this.y, this.s, this.s);
+      }
+    }
+
+    class Cloud {
+      constructor(w, h) {
+        this.x = Math.random() * w;
+        this.y = 30 + Math.random() * 150;
+        this.w = 60 + Math.random() * 80;
+        this.sp = 0.2 + Math.random() * 0.3;
+        this.maxW = w;
+      }
+      update() {
+        this.x -= this.sp;
+        if (this.x + this.w < -10) this.x = this.maxW + 50;
+      }
+      draw(ctx, alpha) {
+        ctx.fillStyle = `rgba(255,255,255,${alpha})`;
+        ctx.beginPath();
+        ctx.ellipse(this.x, this.y, this.w / 2, 12, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.ellipse(this.x - 15, this.y + 5, this.w / 3, 10, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.ellipse(this.x + 18, this.y + 3, this.w / 3.5, 8, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    class Game {
+      constructor() {
+        this.canvas = document.getElementById("gameCanvas");
+        this.ctx = this.canvas.getContext("2d");
+        this.CW = 1000; this.CH = 500;
+        this.canvas.width = this.CW;
+        this.canvas.height = this.CH;
+        this.highScore = parseFloat(localStorage.getItem("dinoHighScore")) || 0;
+        document.getElementById("highscore-display").innerText = `BEST: ${this.fmt(this.highScore)}`;
+        this.stars = Array.from({ length: 80 }, () => new Star(this.CW, this.CH));
+        this.clouds = Array.from({ length: 5 }, () => new Cloud(this.CW, this.CH));
+        this.player = null;
+        this.obstacles = [];
+        this.asteroids = [];
+        this.speed = 0;
+        this.score = 0;
+        this.frameCount = 0;
+        this.playing = false;
+        this.gameOver = false;
+        this.isNight = false;
+        this.nightLock = false;
+        document.getElementById("start-btn").addEventListener("click", () => this.start());
+        document.getElementById("restart-btn").addEventListener("click", () => this.restart());
+        this.loop();
+      }
+      fmt(n) { return Math.floor(n).toString().padStart(5, '0'); }
+      start() {
+        document.getElementById("start-screen").classList.remove("active");
+        this.restart();
+      }
+      restart() {
+        this.player = new Player();
+        this.obstacles = [];
+        this.asteroids = [];
+        this.score = 0;
+        this.frameCount = 0;
+        this.speed = CONFIG.BaseSpeed;
+        this.gameOver = false;
+        this.playing = true;
+        this.isNight = false;
+        this.nightLock = false;
+        document.getElementById("game-over-screen").classList.remove("active");
+      }
+      die() {
+        this.gameOver = true;
+        this.playing = false;
+        if (this.score > this.highScore) {
+          this.highScore = this.score;
+          localStorage.setItem("dinoHighScore", this.highScore);
+        }
+        document.getElementById("highscore-display").innerText = `BEST: ${this.fmt(this.highScore)}`;
+        document.getElementById("final-score").innerText = `SCORE: ${this.fmt(this.score)}`;
+        document.getElementById("game-over-screen").classList.add("active");
+      }
+      update() {
+        this.stars.forEach(s => s.update(this.playing ? this.speed : 1.5));
+        this.clouds.forEach(c => c.update());
+        if (!this.playing || this.gameOver) return;
+        this.frameCount++;
+        this.score += 0.1;
+        if (this.speed < CONFIG.MaxSpeed) this.speed += CONFIG.SpeedIncrement;
+        if (Math.floor(this.score) > 0 && Math.floor(this.score) % CONFIG.NightThreshold === 0 && !this.nightLock) {
+          this.isNight = !this.isNight;
+          this.nightLock = true;
+          setTimeout(() => this.nightLock = false, 2000);
+        }
+        this.player.update();
+        if (this.frameCount % 130 === 0 && Math.random() > 0.35) {
+          this.obstacles.push(new Obstacle(this.CW));
+        }
+        if (this.score > CONFIG.AsteroidAfterScore && this.frameCount % CONFIG.AsteroidInterval === 0) {
+          this.asteroids.push(new Asteroid(this.CW, this.speed));
+        }
+        this.obstacles.forEach(o => o.update(this.speed));
+        this.asteroids.forEach(a => a.update());
+        this.obstacles = this.obstacles.filter(o => o.active);
+        this.asteroids = this.asteroids.filter(a => a.active);
+        this.collisions();
+        document.getElementById("score-display").innerText = `SCORE: ${this.fmt(this.score)}`;
+      }
+      collisions() {
+        if (!this.player) return;
+        const p = this.player;
+        const pad = 8;
+        for (const o of this.obstacles) {
+          if (p.x < o.x + o.w - pad && p.x + p.w > o.x + pad && p.y < o.y + o.h - pad && p.y + p.h > o.y + pad) {
+            this.die(); return;
+          }
+        }
+        for (const a of this.asteroids) {
+          const dx = p.x + p.w / 2 - (a.x + a.size / 2);
+          const dy = p.y + p.h / 2 - (a.y + a.size / 2);
+          if (Math.sqrt(dx * dx + dy * dy) < (p.w / 2 + a.size / 2) - pad) {
+            this.die(); return;
+          }
+        }
+      }
+      draw() {
+        // Sky gradient
+        let grd = this.ctx.createLinearGradient(0, 0, 0, this.CH);
+        if (this.isNight) {
+          grd.addColorStop(0, "#0a0a1a");
+          grd.addColorStop(0.6, "#15152e");
+          grd.addColorStop(1, "#1a1a35");
+        } else {
+          grd.addColorStop(0, "#87CEEB");
+          grd.addColorStop(0.5, "#C4E4F7");
+          grd.addColorStop(1, "#F0E6D3");
+        }
+        this.ctx.fillStyle = grd;
+        this.ctx.fillRect(0, 0, this.CW, this.CH);
+
+        // Sun or Moon
+        this.ctx.font = "36px sans-serif";
+        this.ctx.fillText(this.isNight ? "\ud83c\udf19" : "\u2600\ufe0f", 900, 60);
+
+        // Stars (visible more at night)
+        let starAlpha = this.isNight ? 0.7 : 0.15;
+        this.stars.forEach(s => s.draw(this.ctx, starAlpha));
+
+        // Clouds (visible during day)
+        if (!this.isNight) {
+          this.clouds.forEach(c => c.draw(this.ctx, 0.6));
+        }
+
+        // Ground
+        this.ctx.fillStyle = this.isNight ? "#1a1a2e" : "#D2B48C";
+        this.ctx.fillRect(0, CONFIG.GroundY, this.CW, this.CH - CONFIG.GroundY);
+        // Ground line
+        this.ctx.strokeStyle = this.isNight ? "rgba(100,100,150,0.4)" : "rgba(120,80,40,0.5)";
+        this.ctx.lineWidth = 2;
+        this.ctx.beginPath();
+        this.ctx.moveTo(0, CONFIG.GroundY);
+        this.ctx.lineTo(this.CW, CONFIG.GroundY);
+        this.ctx.stroke();
+
+        // Game objects
+        if (this.player) {
+          this.obstacles.forEach(o => o.draw(this.ctx));
+          this.player.draw(this.ctx);
+          this.asteroids.forEach(a => a.draw(this.ctx));
+        }
+      }
+      loop() {
+        this.update();
+        this.draw();
+        requestAnimationFrame(() => this.loop());
+      }
+    }
+
+    const game = new Game();
+  </script>
+</body>
+
+</html>
